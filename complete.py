@@ -11,15 +11,15 @@ import PyPDF2
 
 
 # Configure API key and initialize model
-genai.configure(api_key="")
+genai.configure(api_key="AIzaSyCD6M571IvBJHm31wTF5vOrGV60gk-PtRQ")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 def stream_data(data, delay: float = 0.1):
-    placeholder = st.empty()  
+    placeholder = st.empty()  # Create an empty placeholder to update text
     text = ""
     for word in data.split():
         text += word + " "
-        placeholder.markdown(f"""<p style="color:rgb(27, 233, 212)">{text}</p>""", unsafe_allow_html= True) 
+        placeholder.markdown(f"""<p style="color:rgb(27, 233, 212)">{text}</p>""", unsafe_allow_html= True)  # Display progressively in markdown
         time.sleep(delay)
 
 
