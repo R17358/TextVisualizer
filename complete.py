@@ -11,15 +11,15 @@ import PyPDF2
 
 
 # Configure API key and initialize model
-genai.configure(api_key="AIzaSyCD6M571IvBJHm31wTF5vOrGV60gk-PtRQ")
+genai.configure(api_key="")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 def stream_data(data, delay: float = 0.1):
-    placeholder = st.empty()  # Create an empty placeholder to update text
+    placeholder = st.empty()  
     text = ""
     for word in data.split():
         text += word + " "
-        placeholder.markdown(f"""<p style="color:rgb(27, 233, 212)">{text}</p>""", unsafe_allow_html= True)  # Display progressively in markdown
+        placeholder.markdown(f"""<p style="color:rgb(27, 233, 212)">{text}</p>""", unsafe_allow_html= True) 
         time.sleep(delay)
 
 
@@ -32,9 +32,26 @@ def recognize_text(image):
         st.error(e)
         return None
 
-def summarize_text(text):
+def ans(ask):
     try:
-        response = model.generate_content(f"Summarize the following text: {text}")
+        response = model.generate_content(f"""explain {ask}. and write everything                               
+                in html format with inline style so render in markdown of streamlit. 
+                nothing else. don't use * symbols. use proper font and spaces. dont use ''' html in beginning""")
+        return response.candidates[0].content.parts[0].text
+    except Exception as e:
+        st.error(e)
+
+def summarize_text(text, exp):
+    try:
+        if exp:
+            response = model.generate_content(f"""explain and solve if maths 
+                                              problem and provide the calculation and 
+                                              answer for {text}. and write everything                               
+                in html format with inline style so render in markdown of streamlit. 
+                nothing else. don't use * symbols. use proper font and spaces. dont use ''' html in beginning. If there
+                is not mathematical expression then explain the text in detail""")
+        else:
+            response = model.generate_content(f"Summarize the following text: {text}")
         return response.candidates[0].content.parts[0].text
     except Exception as e:
         st.error(e)
@@ -70,7 +87,7 @@ def read_pdf(file):
         text += page.extract_text()
     return text
 
-def processing(file, lang, flag):
+def processing(file, lang, flag, exp):
     prompt_list = []
     
     if flag:
@@ -82,7 +99,7 @@ def processing(file, lang, flag):
     else:
         texts = file
     # Summarize the recognized text
-    summary = summarize_text(texts)
+    summary = summarize_text(texts, exp)
     #print(f'Summary: {summary}')
     stream_data(summary, 0.02)
     
@@ -93,19 +110,20 @@ def processing(file, lang, flag):
     stream_data(mean,0.02)
 
     # Generate image prompts
-    with st.spinner("Visualizing..."):
-        i = 0
-        while i < 4:
-            imgPrompt = prompt(summary)
-            prompt_list.append(imgPrompt)
-            #print(f'Prompt for image: {imgPrompt}')
-            i += 1
+    if exp==False:
+        with st.spinner("Visualizing..."):
+            i = 0
+            while i < 4:
+                imgPrompt = prompt(summary)
+                prompt_list.append(imgPrompt)
+                #print(f'Prompt for image: {imgPrompt}')
+                i += 1
+            
+        # Display generated images
         
-    # Display generated images
-    
-        for prom in prompt_list:
-            img, f = IG(f'3D realistic cartoonistic ultra HD {prom}')
-            st.image(img)
+            for prom in prompt_list:
+                img, f = IG(f'3D realistic cartoonistic ultra HD {prom}')
+                st.image(img)
 
 def upload_image():
 
@@ -142,13 +160,14 @@ def upload_image():
     processing(file)
 
 # Streamlit UI
-st.title("Text Visualizer")
+st.markdown("""<h1 style="font-style:italic;">Text <span style="color:orange;font-style:italic">Visualizer</span></h1>""",unsafe_allow_html=True)
 st.divider()
 flag = 0
 # Sidebar for file upload
 sidebar = st.sidebar
 sidebar.title("Menu")
 file = sidebar.file_uploader("Choose a file")
+mainFile = file
 
 # Tabs for different sections
 home, tips, about = st.tabs(["Home", "Tips", "About"])
@@ -156,7 +175,17 @@ home, tips, about = st.tabs(["Home", "Tips", "About"])
 with home:
     
     st.markdown(f"""<h4 style="color:orange">You have to upload a file(image or PDF) to see the<span style="font-size:50px;color:white"> Magic</span>....</h3>""", unsafe_allow_html=True)
-
+    ask = home.text_input("Ask Something...", placeholder="Key of Knowledge...")
+    s1, s2 = st.columns(2)
+    with s1:
+        if st.button("ANS - SUMMARIZE"):
+            if ask:
+                res = ans(ask)
+                stream_data(res)
+    with s2:
+        exp = False
+        if st.button("EXPLAIN - SOLVE"):
+            exp = True
     if file:
         # Open the uploaded file with PIL
         placeholder = sidebar.empty()
@@ -173,13 +202,17 @@ with home:
             time.sleep(1)
             placeholder.empty()
             flag = 0
-
-        lang = st.selectbox("Choose Language for Translation", ["None", "Hindi", "Marathi", "Tamil", "Telugu", "urdu", "Gujarati", "Other"])
-        if(lang == 'Other'):
-            lang = st.text_input("Enter Your preferred language")
-        if(lang!='None' and lang!=''):
+        if exp == False:
+            lang = st.selectbox("Choose Language for Translation", ["None", "Hindi", "Marathi", "Tamil", "Telugu", "urdu", "Gujarati", "Other"])
+            if(lang == 'Other'):
+                lang = st.text_input("Enter Your preferred language")
+            if(lang!='None' and lang!=''):
+                with st.spinner("Thinking...."):
+                    processing(file, lang, flag, exp)
+        else:
             with st.spinner("Thinking...."):
-                processing(file, lang, flag)
+                    lang = 'hindi'
+                    processing(file, lang, flag, exp)
 
 with tips:
     st.markdown(
