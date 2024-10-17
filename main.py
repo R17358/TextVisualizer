@@ -9,10 +9,16 @@ from PIL import Image
 from otherImgGen import ImageGenerator as IG
 import PyPDF2
 
-
 # Configure API key and initialize model
-genai.configure(api_key="AIzaSyCD6M571IvBJHm31wTF5vOrGV60gk-PtRQ")
+genai.configure(api_key="Your api key")
 model = genai.GenerativeModel('gemini-1.5-flash')
+
+if 'stop' not in st.session_state:
+    st.session_state.stop = False
+
+# Function to handle stopping the process
+def stop_processing():
+    st.session_state.stop = True
 
 def stream_data(data, delay: float = 0.1):
     placeholder = st.empty()  # Create an empty placeholder to update text
@@ -21,7 +27,6 @@ def stream_data(data, delay: float = 0.1):
         text += word + " "
         placeholder.markdown(f"""<p style="color:rgb(27, 233, 212)">{text}</p>""", unsafe_allow_html= True)  # Display progressively in markdown
         time.sleep(delay)
-
 
 def recognize_text(image):
     try:
@@ -49,7 +54,7 @@ def summarize_text(text, exp):
                                               answer for {text}. and write everything                               
                 in html format with inline style so render in markdown of streamlit. 
                 nothing else. don't use * symbols. use proper font and spaces. dont use ''' html in beginning. If there
-                is not mathematical expression then explain the text in detail""")
+                is not mathematical expression then explain the text in detail. use proper format for the text for proper representation and understanding""")
         else:
             response = model.generate_content(f"Summarize the following text: {text}")
         return response.candidates[0].content.parts[0].text
@@ -63,7 +68,7 @@ def prompt(text):
     except Exception as e:
         st.error(e)
 
-def translate(summary, lang):
+def translate(summary, lang='hindi'):
     try:
         response = model.generate_content(f"Translate the following {summary} into {lang} and use simple words.")
         return response.candidates[0].content.parts[0].text
@@ -103,7 +108,7 @@ def processing(file, lang, flag, exp):
     #print(f'Summary: {summary}')
     stream_data(summary, 0.02)
     
-    # Translate summary to Hindi
+    # Translate summary to Desired language
 
     mean = translate(summary, lang)
     #print(f"Translation: {mean}")
@@ -125,67 +130,82 @@ def processing(file, lang, flag, exp):
                 img, f = IG(f'3D realistic cartoonistic ultra HD {prom}')
                 st.image(img)
 
-def upload_image():
+# def upload_image():
 
-    cap = cv2.VideoCapture(1) 
+    # cap = cv2.VideoCapture(1) 
 
-    if not cap.isOpened():
-        print("Error: Could not open video device")
-        exit()
+    # if not cap.isOpened():
+    #     print("Error: Could not open video device")
+    #     exit()
 
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    file_path = os.path.join('uploaded_images', 'received_image.png')
+    # file_path = os.path.join('uploaded_images', 'received_image.png')
 
-    while True:
-        ret, frame = cap.read()
+    # while True:
+    #     ret, frame = cap.read()
 
-        if ret:
-            cv2.imshow("Camera Feed", frame)
+    #     if ret:
+    #         cv2.imshow("Camera Feed", frame)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                cv2.imwrite(file_path, frame)
-                print("Image captured and saved as 'received_image.png'.")
-                break
-        else:
-            print("Error: Failed to capture image")
-            break
+    #         if cv2.waitKey(1) & 0xFF == ord('q'):
+    #             cv2.imwrite(file_path, frame)
+    #             print("Image captured and saved as 'received_image.png'.")
+    #             break
+    #     else:
+    #         print("Error: Failed to capture image")
+    #         break
 
-    cap.release()
-    cv2.destroyAllWindows()
+    # cap.release()
+    # cv2.destroyAllWindows()
 
-    # Call the processing function to process the image
-    file = Image.open(file_path)
-    processing(file)
+    # # Call the processing function to process the image
+    # file = Image.open(file_path)
+    # processing(file)
+
+def imgText(input):
+    out = model.generate_content(input)
+    return out
 
 # Streamlit UI
-st.markdown("""<h1 style="font-style:italic;">Text <span style="color:orange;font-style:italic">Visualizer</span></h1>""",unsafe_allow_html=True)
+st.markdown("""<h1 style="font-style:italic;">Page<span style="color:orange;font-style:italic">Insighter</span></h1>""",unsafe_allow_html=True)
 st.divider()
 flag = 0
 # Sidebar for file upload
 sidebar = st.sidebar
-sidebar.title("Menu")
+sidebar.title("SUMMARIZE & VISUALIZE")
 file = sidebar.file_uploader("Choose a file")
 mainFile = file
 
-# Tabs for different sections
+if sidebar.button("STOP", key="stop_button"):
+    stop_processing()  # Call stop processing function
+
+lang = sidebar.selectbox("Choose Language for Translation", ["None", "Hindi", "Marathi", "Tamil", "Telugu", "urdu", "Gujarati", "Other"])
+if(lang == 'Other'):
+    lang = st.text_input("Enter Your preferred language")
+
 home, tips, about = st.tabs(["Home", "Tips", "About"])
 
 with home:
-    
+    print_flag = ""
+    main_ans = ""
+    exp = False
     st.markdown(f"""<h4 style="color:orange">You have to upload a file(image or PDF) to see the<span style="font-size:50px;color:white"> Magic</span>....</h3>""", unsafe_allow_html=True)
     ask = home.text_input("Ask Something...", placeholder="Key of Knowledge...")
     s1, s2 = st.columns(2)
     with s1:
-        if st.button("ANS - SUMMARIZE"):
+        if st.button("ANS"):
             if ask:
-                res = ans(ask)
-                stream_data(res)
-    with s2:
-        exp = False
-        if st.button("EXPLAIN - SOLVE"):
-            exp = True
+                if "image" in ask:
+                    with st.spinner("Visualizing...."):
+                        img, f = IG(f"""{ask}""")
+                        st.image(img)
+                        ask = ""
+                else:
+                    with st.spinner("Thinking...."):
+                        res = ans(ask)
+                        print_flag = "s1"
     if file:
         # Open the uploaded file with PIL
         placeholder = sidebar.empty()
@@ -202,17 +222,50 @@ with home:
             time.sleep(1)
             placeholder.empty()
             flag = 0
-        if exp == False:
-            lang = st.selectbox("Choose Language for Translation", ["None", "Hindi", "Marathi", "Tamil", "Telugu", "urdu", "Gujarati", "Other"])
-            if(lang == 'Other'):
-                lang = st.text_input("Enter Your preferred language")
+        if st.button("SUMMARIZE & VISUALIZE"):
             if(lang!='None' and lang!=''):
                 with st.spinner("Thinking...."):
-                    processing(file, lang, flag, exp)
+                    processing(file, lang, flag, False)
+            else:
+                with st.spinner("Thinking...."):
+                    processing(file, 'hindi', flag, False)
+        elif st.button("EXPLAIN OR SOLVE"):
+            if(lang!='None' and lang!=''):
+                with st.spinner("Thinking...."):
+                    processing(file, lang, flag, True)
+            else:
+                with st.spinner("Thinking...."):
+                    processing(file, 'hindi', flag, True)
+    with s2:
+        if st.button("IMAGE EXPLANATION"):
+            temp = s2.empty()
+            if mainFile:
+                mainFile = Image.open(mainFile)
+                out = imgText(mainFile)
+                fin_ans = model.generate_content(f"""if {out.text} contains mathematical expression then solve it stepwise. else explain the content. and write everything                               
+                    in html format with inline style so render in markdown of streamlit. 
+                    nothing else. don't use * symbols. use proper font and spaces. dont use ''' html in beginning. If there
+                    is not mathematical expression then explain the text in detail""")
+                #print(fin_ans)
+                print_flag = "s2"
+                ans = fin_ans.text
+            else:
+                temp.error("Please upload Image or file to explain")
+                time.sleep(1)
+                temp.empty()
+                
+    if print_flag == "s1":
+        main_ans = res
+    elif print_flag == "s2":
+        main_ans = ans
+    if main_ans:
+        with st.spinner("Thinking...."):
+            stream_data(f"""{main_ans}""", 0.02)
+        if lang!="None" and lang!="":
+            with st.spinner("Translating...."):
+                stream_data(f"""{translate(main_ans, lang)}""")
         else:
-            with st.spinner("Thinking...."):
-                    lang = 'hindi'
-                    processing(file, lang, flag, exp)
+            stream_data(f"""{translate(main_ans, 'hindi')}""", 0.02)
 
 with tips:
     st.markdown(
@@ -355,5 +408,6 @@ with about:
         <h6>https://github.com/</h6>         
 """, unsafe_allow_html=True)
     st.divider()
+
 
 
